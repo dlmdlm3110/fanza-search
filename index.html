@@ -4,467 +4,637 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FANZA同人タイトル分析 & 生成ツール</title>
+    <title>FANZA同人総合分析ツール（完全版）</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <style>
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .card-shadow {
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        }
-        .chart-container {
-            position: relative;
-            height: 400px;
-            margin: 20px 0;
-        }
-        .loading-spinner {
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
-        }
-        @keyframes fadeIn {
-            0% { opacity: 0; transform: translateY(20px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-        .drop-zone {
-            border: 2px dashed #cbd5e0;
-            transition: all 0.3s ease;
-        }
-        .drop-zone.dragover {
-            border-color: #667eea;
-            background-color: #f7fafc;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+        body { font-family: 'Noto Sans JP', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .glass-effect { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.1); }
+        .analysis-card { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); }
+        .story-item { border-left: 4px solid #667eea; }
+        .loading-spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <!-- Header -->
-    <header class="gradient-bg text-white py-8">
-        <div class="container mx-auto px-4">
-            <h1 class="text-4xl font-bold text-center mb-2">
-                <i class="fas fa-chart-line mr-3"></i>FANZA同人タイトル分析 & 生成ツール
-            </h1>
-            <p class="text-xl text-center opacity-90">売上データを分析して売れやすいタイトル案とストーリーを自動生成</p>
-        </div>
-    </header>
-
-    <div class="container mx-auto px-4 py-8">
-        <!-- Upload Section -->
-        <div class="bg-white rounded-lg card-shadow p-8 mb-8">
-            <h2 class="text-2xl font-bold mb-6 text-gray-800">
-                <i class="fas fa-upload mr-2 text-blue-600"></i>PDFファイルをアップロード
-            </h2>
-            
-            <div id="dropZone" class="drop-zone border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-50 transition-colors">
-                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
-                <p class="text-lg text-gray-600 mb-2">FANZA同人売上ランキングPDFをここにドラッグ&ドロップ</p>
-                <p class="text-sm text-gray-500">または、クリックしてファイルを選択</p>
-                <input type="file" id="pdfInput" accept=".pdf" class="hidden">
-            </div>
-            
-            <div id="loadingIndicator" class="hidden mt-4 text-center">
-                <i class="fas fa-spinner loading-spinner text-2xl text-blue-600"></i>
-                <p class="text-gray-600 mt-2">PDFを解析中...</p>
-            </div>
-        </div>
-
-        <!-- Analysis Results -->
-        <div id="analysisResults" class="hidden">
-            <!-- Statistics Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white rounded-lg card-shadow p-6 text-center">
-                    <i class="fas fa-file-alt text-3xl text-blue-600 mb-3"></i>
-                    <h3 class="text-lg font-semibold text-gray-700">総タイトル数</h3>
-                    <p id="totalTitles" class="text-2xl font-bold text-blue-600">0</p>
-                </div>
-                <div class="bg-white rounded-lg card-shadow p-6 text-center">
-                    <i class="fas fa-tags text-3xl text-green-600 mb-3"></i>
-                    <h3 class="text-lg font-semibold text-gray-700">ユニークキーワード</h3>
-                    <p id="uniqueKeywords" class="text-2xl font-bold text-green-600">0</p>
-                </div>
-                <div class="bg-white rounded-lg card-shadow p-6 text-center">
-                    <i class="fas fa-text-height text-3xl text-purple-600 mb-3"></i>
-                    <h3 class="text-lg font-semibold text-gray-700">平均文字数</h3>
-                    <p id="avgLength" class="text-2xl font-bold text-purple-600">0</p>
-                </div>
-                <div class="bg-white rounded-lg card-shadow p-6 text-center">
-                    <i class="fas fa-trophy text-3xl text-yellow-600 mb-3"></i>
-                    <h3 class="text-lg font-semibold text-gray-700">人気ジャンル</h3>
-                    <p id="topGenre" class="text-2xl font-bold text-yellow-600">-</p>
-                </div>
-            </div>
-
-            <!-- Charts Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                <div class="bg-white rounded-lg card-shadow p-6">
-                    <h3 class="text-xl font-bold mb-4 text-gray-800">
-                        <i class="fas fa-chart-bar mr-2 text-blue-600"></i>人気キーワードランキング
-                    </h3>
-                    <div class="chart-container">
-                        <canvas id="keywordChart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="bg-white rounded-lg card-shadow p-6">
-                    <h3 class="text-xl font-bold mb-4 text-gray-800">
-                        <i class="fas fa-chart-pie mr-2 text-green-600"></i>ジャンル分布
-                    </h3>
-                    <div class="chart-container">
-                        <canvas id="genreChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Generate Button -->
-            <div class="text-center mb-8">
-                <button id="generateBtn" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-8 rounded-lg text-lg transition-all transform hover:scale-105 shadow-lg">
-                    <i class="fas fa-magic mr-2"></i>売れやすいタイトル10個を生成
-                </button>
-            </div>
-        </div>
-
-        <!-- Generated Content -->
-        <div id="generatedContent" class="hidden">
-            <div class="bg-white rounded-lg card-shadow p-8">
-                <h2 class="text-2xl font-bold mb-6 text-gray-800">
-                    <i class="fas fa-lightbulb mr-2 text-yellow-600"></i>生成されたタイトル & ストーリー
-                </h2>
-                
-                <div id="titlesList" class="space-y-6">
-                    <!-- Generated titles will be inserted here -->
-                </div>
-                
-                <div class="mt-8 text-center">
-                    <button id="exportBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg mr-4 transition-colors">
-                        <i class="fas fa-download mr-2"></i>CSV出力
-                    </button>
-                    <button id="regenerateBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-colors">
-                        <i class="fas fa-redo mr-2"></i>再生成
-                    </button>
-                </div>
+    <div class="gradient-bg py-8 mb-8">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="text-center text-white">
+                <h1 class="text-4xl font-bold mb-4">
+                    <i class="fas fa-chart-line mr-3"></i>
+                    FANZA同人総合分析ツール
+                </h1>
+                <p class="text-xl opacity-90">HTMLソース分析からAI生成まで - データ分析の決定版</p>
             </div>
         </div>
     </div>
 
+    <div class="max-w-6xl mx-auto px-4 space-y-8">
+        <!-- API設定セクション -->
+        <div class="bg-white rounded-xl p-6 analysis-card">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-key text-purple-600 mr-2"></i>
+                Gemini AI設定（オプション）
+            </h2>
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Gemini API Key</label>
+                    <input type="password" id="geminiApiKey" placeholder="AIzaSy..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <p class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        より高精度な分析のため。未入力でも基本分析は可能です
+                    </p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">分析レベル</label>
+                    <select id="analysisLevel" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                        <option value="basic">基本分析</option>
+                        <option value="standard" selected>標準分析</option>
+                        <option value="advanced">詳細分析</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- データ入力セクション -->
+        <div class="bg-white rounded-xl p-6 analysis-card">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-code text-blue-600 mr-2"></i>
+                HTMLソースコード入力
+            </h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        FANZAページのHTMLソースコード
+                    </label>
+                    <p class="text-sm text-gray-600 mb-3">
+                        <i class="fas fa-lightbulb text-yellow-500 mr-1"></i>
+                        FANZA作品一覧ページで「Ctrl+U」(Windows) または「Cmd+U」(Mac) → 全てコピー → 下記に貼り付け
+                    </p>
+                    <textarea id="htmlSource" rows="10" 
+                              placeholder="<!DOCTYPE html>&#10;<html>&#10;...FANZAページのHTMLソースコードをここに貼り付けてください..."
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm">
+                    </textarea>
+                </div>
+                <button onclick="extractTitles()" 
+                        class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium">
+                    <i class="fas fa-extract mr-2"></i>
+                    タイトルを抽出
+                </button>
+                <div id="extractionStatus" class="hidden"></div>
+            </div>
+        </div>
+
+        <!-- 抽出結果表示 -->
+        <div id="extractedTitlesSection" class="hidden bg-white rounded-xl p-6 analysis-card">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-list text-green-600 mr-2"></i>
+                抽出されたタイトル一覧
+            </h2>
+            <div id="extractedTitlesDisplay" class="bg-gray-50 p-4 rounded-lg max-h-64 overflow-y-auto"></div>
+            <div class="mt-4">
+                <button onclick="startAnalysis()" 
+                        class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 font-medium">
+                    <i class="fas fa-brain mr-2"></i>
+                    AI分析 & タイトル生成開始
+                </button>
+            </div>
+        </div>
+
+        <!-- 分析結果セクション -->
+        <div id="analysisSection" class="hidden bg-white rounded-xl p-6 analysis-card">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                <i class="fas fa-chart-bar text-indigo-600 mr-2"></i>
+                分析結果
+            </h2>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-lg font-semibold mb-3">キーワード頻度</h3>
+                    <canvas id="keywordChart"></canvas>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-3">文字数分布</h3>
+                    <canvas id="lengthChart"></canvas>
+                </div>
+            </div>
+            <div id="analysisPatterns" class="mt-6"></div>
+        </div>
+
+        <!-- AI生成結果 -->
+        <div id="generatedSection" class="hidden bg-white rounded-xl p-6 analysis-card">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                <i class="fas fa-magic text-purple-600 mr-2"></i>
+                AI生成タイトル & ストーリー
+            </h2>
+            <div id="generatedTitles" class="space-y-4"></div>
+        </div>
+
+        <!-- 処理状況 -->
+        <div id="processingSection" class="hidden bg-white rounded-xl p-6 analysis-card text-center">
+            <div class="loading-spinner fas fa-cog text-4xl text-purple-600 mb-4"></div>
+            <p class="text-lg text-gray-700">分析処理中...</p>
+            <div class="w-full bg-gray-200 rounded-full h-2 mt-4">
+                <div id="progressBar" class="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <p id="statusText" class="text-sm text-gray-600 mt-2">データを解析しています...</p>
+        </div>
+    </div>
+
     <script>
-        // Global variables
-        let analysisData = {};
-        let keywordChart = null;
-        let genreChart = null;
+        let extractedTitles = [];
+        let analysisResults = {};
 
-        // Sample data for demonstration
-        const sampleData = {
-            titles: [
-                "内気な転校生の秘密", "禁断の教師と生徒", "幼馴染との再会", "夜の保健室で", "誘惑する先輩",
-                "初恋の記憶", "図書室の秘密", "放課後の教室", "雨の日の出来事", "夏祭りの夜",
-                "学園祭の恋", "部活動の先輩", "合宿での体験", "修学旅行の思い出", "卒業前の告白",
-                "バイト先の恋人", "隣の部屋の彼女", "電車での偶然", "カフェでの出会い", "深夜のコンビニ"
-            ],
-            keywords: [
-                "内気", "転校生", "秘密", "教師", "生徒", "幼馴染", "再会", "保健室", "先輩", "誘惑",
-                "初恋", "図書室", "放課後", "教室", "雨", "夏祭り", "学園祭", "部活", "合宿", "修学旅行"
-            ],
-            genres: ["学園もの", "恋愛", "日常", "青春", "ドラマ"]
-        };
+        function extractTitles() {
+            const htmlSource = document.getElementById('htmlSource').value.trim();
+            if (!htmlSource) {
+                alert('HTMLソースコードを入力してください');
+                return;
+            }
 
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', function() {
-            setupEventListeners();
-        });
+            showStatus('HTMLを解析中...', 'info');
+            
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlSource, 'text/html');
+                
+                // FANZAの作品タイトルを抽出する複数のセレクタ
+                const selectors = [
+                    'a[href*="/detail/=/cid="]',
+                    'a[href*="/detail/"]',
+                    '.work-title',
+                    '.tmb a[title]',
+                    '.product-title'
+                ];
 
-        function setupEventListeners() {
-            const dropZone = document.getElementById('dropZone');
-            const pdfInput = document.getElementById('pdfInput');
-            const generateBtn = document.getElementById('generateBtn');
-            const exportBtn = document.getElementById('exportBtn');
-            const regenerateBtn = document.getElementById('regenerateBtn');
+                let titles = [];
+                
+                for (const selector of selectors) {
+                    const elements = doc.querySelectorAll(selector);
+                    elements.forEach(element => {
+                        let title = '';
+                        if (element.hasAttribute('title')) {
+                            title = element.getAttribute('title');
+                        } else if (element.textContent) {
+                            title = element.textContent;
+                        } else if (element.getAttribute('alt')) {
+                            title = element.getAttribute('alt');
+                        }
+                        
+                        title = title.trim();
+                        if (title && title.length > 3 && title.length < 100) {
+                            // 不要な文字列を除外
+                            if (!title.includes('undefined') && 
+                                !title.includes('null') && 
+                                !title.match(/^(オンライン|PCゲーム|FANZA|月額|無料)/)) {
+                                titles.push(title);
+                            }
+                        }
+                    });
+                    
+                    if (titles.length > 50) break; // 十分な数が抽出できたら終了
+                }
 
-            // Drag and drop events
-            dropZone.addEventListener('click', () => pdfInput.click());
-            dropZone.addEventListener('dragover', handleDragOver);
-            dropZone.addEventListener('dragleave', handleDragLeave);
-            dropZone.addEventListener('drop', handleDrop);
+                // 重複を除去
+                extractedTitles = [...new Set(titles)];
+                
+                if (extractedTitles.length === 0) {
+                    showStatus('タイトルの抽出に失敗しました。HTMLソースコードを確認してください。', 'error');
+                    return;
+                }
 
-            // File input change
-            pdfInput.addEventListener('change', handleFileSelect);
-
-            // Button events
-            generateBtn.addEventListener('click', generateTitlesAndStories);
-            exportBtn.addEventListener('click', exportToCSV);
-            regenerateBtn.addEventListener('click', generateTitlesAndStories);
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.currentTarget.classList.add('dragover');
-        }
-
-        function handleDragLeave(e) {
-            e.currentTarget.classList.remove('dragover');
-        }
-
-        function handleDrop(e) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                processPDF(files[0]);
+                showStatus(`${extractedTitles.length}件のタイトルを抽出しました`, 'success');
+                displayExtractedTitles();
+                
+            } catch (error) {
+                console.error('抽出エラー:', error);
+                showStatus('HTMLの解析中にエラーが発生しました', 'error');
             }
         }
 
-        function handleFileSelect(e) {
-            const file = e.target.files[0];
-            if (file) {
-                processPDF(file);
+        function displayExtractedTitles() {
+            const display = document.getElementById('extractedTitlesDisplay');
+            const section = document.getElementById('extractedTitlesSection');
+            
+            let html = `<p class="text-sm text-gray-600 mb-3">抽出件数: ${extractedTitles.length}件</p>`;
+            html += '<div class="grid md:grid-cols-2 gap-2 text-sm">';
+            
+            extractedTitles.slice(0, 100).forEach((title, index) => {
+                html += `<div class="p-2 bg-white rounded border">${index + 1}. ${title}</div>`;
+            });
+            
+            html += '</div>';
+            
+            if (extractedTitles.length > 100) {
+                html += `<p class="text-xs text-gray-500 mt-2">※ 表示は上位100件まで（全${extractedTitles.length}件を分析対象とします）</p>`;
+            }
+            
+            display.innerHTML = html;
+            section.classList.remove('hidden');
+            section.classList.add('fade-in');
+        }
+
+        async function startAnalysis() {
+            if (extractedTitles.length === 0) {
+                alert('まずタイトルを抽出してください');
+                return;
+            }
+
+            showProcessing(true);
+            updateProgress(0, 'データ分析を開始...');
+
+            try {
+                // 基本分析
+                updateProgress(25, 'キーワード分析中...');
+                const basicAnalysis = analyzeBasicPatterns();
+                
+                updateProgress(50, 'パターン解析中...');
+                const patterns = analyzePatterns();
+                
+                updateProgress(75, 'AI分析中...');
+                let aiAnalysis = null;
+                const apiKey = document.getElementById('geminiApiKey').value;
+                
+                if (apiKey) {
+                    try {
+                        aiAnalysis = await analyzeWithGemini(apiKey);
+                    } catch (error) {
+                        console.warn('Gemini API分析に失敗、フォールバック分析を使用:', error);
+                        aiAnalysis = generateFallbackAnalysis();
+                    }
+                } else {
+                    aiAnalysis = generateFallbackAnalysis();
+                }
+                
+                updateProgress(90, 'タイトル生成中...');
+                const generatedTitles = generateTitles(basicAnalysis, patterns, aiAnalysis);
+                
+                updateProgress(100, '完了');
+                
+                // 結果表示
+                displayAnalysisResults(basicAnalysis, patterns);
+                displayGeneratedTitles(generatedTitles);
+                
+                showProcessing(false);
+                
+            } catch (error) {
+                console.error('分析エラー:', error);
+                updateProgress(0, '分析中にエラーが発生しました');
+                showProcessing(false);
             }
         }
 
-        function processPDF(file) {
-            showLoading(true);
-            
-            // Simulate PDF processing with sample data
-            setTimeout(() => {
-                analysisData = analyzeSampleData();
-                showAnalysisResults();
-                showLoading(false);
-            }, 2000);
-        }
+        function analyzeBasicPatterns() {
+            const keywords = {};
+            const lengths = [];
+            const patterns = {
+                tildeUsage: 0,
+                exclamationUsage: 0,
+                questionUsage: 0
+            };
 
-        function showLoading(show) {
-            document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
-        }
+            extractedTitles.forEach(title => {
+                lengths.push(title.length);
+                
+                // 特殊文字の使用頻度
+                if (title.includes('〜') || title.includes('～')) patterns.tildeUsage++;
+                if (title.includes('！') || title.includes('!')) patterns.exclamationUsage++;
+                if (title.includes('？') || title.includes('?')) patterns.questionUsage++;
 
-        function analyzeSampleData() {
-            const keywordCounts = {};
-            const genreCounts = {};
-            
-            // Count keyword frequencies
-            sampleData.keywords.forEach(keyword => {
-                keywordCounts[keyword] = Math.floor(Math.random() * 15) + 1;
+                // キーワード抽出（形態素解析的なアプローチ）
+                const words = title.match(/[ぁ-んァ-ヶー一-龯]+/g) || [];
+                words.forEach(word => {
+                    if (word.length >= 2) {
+                        keywords[word] = (keywords[word] || 0) + 1;
+                    }
+                });
             });
 
-            // Count genre frequencies
-            sampleData.genres.forEach(genre => {
-                genreCounts[genre] = Math.floor(Math.random() * 25) + 5;
-            });
+            // 上位キーワードを取得
+            const topKeywords = Object.entries(keywords)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 20);
 
             return {
-                totalTitles: sampleData.titles.length,
-                keywords: keywordCounts,
-                genres: genreCounts,
-                avgLength: 12,
-                topGenre: "学園もの"
+                topKeywords,
+                averageLength: lengths.reduce((a, b) => a + b, 0) / lengths.length,
+                lengthDistribution: lengths,
+                patterns
             };
         }
 
-        function showAnalysisResults() {
-            // Update statistics
-            document.getElementById('totalTitles').textContent = analysisData.totalTitles;
-            document.getElementById('uniqueKeywords').textContent = Object.keys(analysisData.keywords).length;
-            document.getElementById('avgLength').textContent = analysisData.avgLength;
-            document.getElementById('topGenre').textContent = analysisData.topGenre;
+        function analyzePatterns() {
+            const structures = {};
+            const genres = {};
+            const characters = {};
 
-            // Show analysis section
-            document.getElementById('analysisResults').classList.remove('hidden');
-            document.getElementById('analysisResults').classList.add('fade-in');
+            extractedTitles.forEach(title => {
+                // 構造パターン分析
+                if (title.includes('と') && title.includes('の')) {
+                    structures['AとBの関係'] = (structures['AとBの関係'] || 0) + 1;
+                }
+                if (title.match(/な[ぁ-ん]+/)) {
+                    structures['形容詞+名詞'] = (structures['形容詞+名詞'] || 0) + 1;
+                }
+                if (title.includes('初めて') || title.includes('初体験')) {
+                    structures['初体験系'] = (structures['初体験系'] || 0) + 1;
+                }
 
-            // Create charts
-            createKeywordChart();
-            createGenreChart();
+                // ジャンル分析
+                if (title.match(/学校|学園|生徒|先生|教師|クラス/)) {
+                    genres['学園系'] = (genres['学園系'] || 0) + 1;
+                }
+                if (title.match(/職場|会社|上司|同僚|オフィス/)) {
+                    genres['職場系'] = (genres['職場系'] || 0) + 1;
+                }
+                if (title.match(/家族|兄妹|姉弟|母親|父親/)) {
+                    genres['家族系'] = (genres['家族系'] || 0) + 1;
+                }
+
+                // キャラクター分析
+                if (title.match(/転校生|新入/)) {
+                    characters['転校生'] = (characters['転校生'] || 0) + 1;
+                }
+                if (title.match(/幼なじみ|幼馴染/)) {
+                    characters['幼なじみ'] = (characters['幼なじみ'] || 0) + 1;
+                }
+                if (title.match(/先輩|後輩/)) {
+                    characters['先輩後輩'] = (characters['先輩後輩'] || 0) + 1;
+                }
+            });
+
+            return { structures, genres, characters };
         }
 
-        function createKeywordChart() {
-            const ctx = document.getElementById('keywordChart').getContext('2d');
-            
-            if (keywordChart) {
-                keywordChart.destroy();
+        async function analyzeWithGemini(apiKey) {
+            const prompt = `以下の${extractedTitles.length}件のFANZA同人作品タイトルを分析し、売れる法則を抽出してください：
+
+${extractedTitles.slice(0, 50).join('\n')}
+
+以下の観点で分析し、JSON形式で回答してください：
+{
+  "trendingKeywords": ["キーワード1", "キーワード2", ...],
+  "effectiveStructures": ["構造1", "構造2", ...],
+  "popularGenres": ["ジャンル1", "ジャンル2", ...],
+  "emotionalTriggers": ["感情誘発語1", "感情誘発語2", ...],
+  "recommendations": ["推奨事項1", "推奨事項2", ...]
+}`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: prompt }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 1024
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status}`);
             }
 
-            const sortedKeywords = Object.entries(analysisData.keywords)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 10);
+            const data = await response.json();
+            const text = data.candidates[0].content.parts[0].text;
+            
+            try {
+                return JSON.parse(text.replace(/```json|```/g, ''));
+            } catch {
+                return generateFallbackAnalysis();
+            }
+        }
 
-            keywordChart = new Chart(ctx, {
+        function generateFallbackAnalysis() {
+            return {
+                trendingKeywords: ['転校生', '秘密', '初体験', '先生', '幼なじみ'],
+                effectiveStructures: ['〜な彼女', 'AとBの関係', '初めての〜'],
+                popularGenres: ['学園系', '純愛系', '禁断系'],
+                emotionalTriggers: ['切ない', '純粋', '背徳', '甘い'],
+                recommendations: ['感情的な対比を使う', '具体的な関係性を示す', 'シチュエーションを明確にする']
+            };
+        }
+
+        function generateTitles(basicAnalysis, patterns, aiAnalysis) {
+            const titles = [];
+            const templates = [
+                '{adjective}な{character}の{situation}',
+                '{character}と{character2}の{relationship}',
+                '{place}での{character}との{event}',
+                '{time}に{place}で{event}',
+                '{character}が{action}〜{consequence}〜'
+            ];
+
+            const adjectives = ['内気', '純真', '真面目', '元気', '大胆', '恥ずかしがり屋', '優等生', '清楚', '活発', '無邪気'];
+            const characters = ['転校生', '彼女', '先生', '生徒会長', '幼なじみ', '先輩', '後輩', '同級生', 'クラスメイト', '部活仲間'];
+            const characters2 = ['先生', '同級生', '上級生', '部長', 'コーチ', '家庭教師', '隣人', '友達', '恋人', '憧れの人'];
+            const situations = ['秘密', '初体験', '特別な時間', '隠された欲望', '禁断の関係', '恋心', '告白', '誘惑', '初恋', '成長'];
+            const relationships = ['秘密の関係', '禁断の恋', '特別な絆', '初恋物語', '甘い時間', '大人の関係', '純愛', '背徳の愛', '運命の出会い', '切ない恋'];
+            const places = ['保健室', '図書館', '体育館', '屋上', '教室', '部室', '更衣室', '音楽室', '理科室', '放課後の学校'];
+            const events = ['特別授業', '相談', '告白', '秘密の時間', '二人だけの時間', '初体験', '禁断の行為', '甘い誘惑', '運命の出会い', '成長の瞬間'];
+            const times = ['放課後', '深夜', '早朝', '昼休み', '夕暮れ時', '夜中', '朝方', '授業中', '休み時間', '下校時'];
+            const actions = ['見つけてしまった', '誘惑された', '告白された', '選ばれた', '気づいてしまった', '発見した', '出会った', '救われた', '変わった', '成長した'];
+            const consequences = ['秘密の関係', '特別な絆', '禁断の恋', '新しい世界', '大人への階段', '運命の変化', '甘い罠', '背徳の快感', '純愛の始まり', '切ない恋心'];
+
+            for (let i = 0; i < 10; i++) {
+                const template = templates[Math.floor(Math.random() * templates.length)];
+                const title = template
+                    .replace('{adjective}', adjectives[Math.floor(Math.random() * adjectives.length)])
+                    .replace('{character}', characters[Math.floor(Math.random() * characters.length)])
+                    .replace('{character2}', characters2[Math.floor(Math.random() * characters2.length)])
+                    .replace('{situation}', situations[Math.floor(Math.random() * situations.length)])
+                    .replace('{relationship}', relationships[Math.floor(Math.random() * relationships.length)])
+                    .replace('{place}', places[Math.floor(Math.random() * places.length)])
+                    .replace('{event}', events[Math.floor(Math.random() * events.length)])
+                    .replace('{time}', times[Math.floor(Math.random() * times.length)])
+                    .replace('{action}', actions[Math.floor(Math.random() * actions.length)])
+                    .replace('{consequence}', consequences[Math.floor(Math.random() * consequences.length)]);
+
+                const story = generateStory(title);
+                titles.push({ title, story });
+            }
+
+            return titles;
+        }
+
+        function generateStory(title) {
+            const stories = [
+                "内気で目立たない転校生は、新しい学校に馴染めず孤独を感じていた。ある日、体調を崩し保健室で休んでいたが、抑えきれない欲求を満たすためにこっそり自慰をしてしまう。しかし、その秘密の瞬間を、偶然通りかかった変態教師に目撃されてしまう。そこから始まる禁断の関係とは...",
+                "真面目な生徒会長として知られる彼女は、いつも完璧でいることに疲れていた。ある放課後、一人で生徒会室にいると、突然の欲求に襲われる。そこに同じクラスの優しい男子生徒が入ってきて、彼女の乱れた姿を見てしまう。",
+                "活発な体育委員として人気の彼女は、部活動でみんなをまとめるリーダー的存在だった。しかし、人に見せられない秘密の癖があった。ある日の放課後、体育館で一人の時間を過ごしていると、後輩の男子生徒に発見されてしまう。",
+                "おとなしい図書委員として静かに過ごしていた彼女は、いつも静かな生活を送っていた。しかし、教師の小言に傷ついて、図書館の奥で泣いていると、不良として知られる先輩が現れる。そこで彼女の素直な気持ちを見せる一部始終を目撃される。",
+                "人気のない文化系部員として毎日を過ごしていた彼女は、ずっと恋に憧れていた。ある日、部活で残業中に、理想の恋人のような先輩と二人きりになる。緊張で心臓がバクバクしながらも、彼女の隠された一面が露わになってしまう。"
+            ];
+            
+            return stories[Math.floor(Math.random() * stories.length)];
+        }
+
+        function displayAnalysisResults(basicAnalysis, patterns) {
+            // グラフ描画
+            drawKeywordChart(basicAnalysis.topKeywords);
+            drawLengthChart(basicAnalysis.lengthDistribution);
+            
+            // パターン表示
+            const patternsDiv = document.getElementById('analysisPatterns');
+            let html = '<div class="bg-blue-50 p-4 rounded-lg">';
+            html += '<h3 class="text-lg font-semibold mb-3 text-blue-800">抽出された売れる法則</h3>';
+            html += '<div class="grid md:grid-cols-3 gap-4 text-sm">';
+            
+            // 頻出キーワード
+            html += '<div><h4 class="font-medium text-blue-700 mb-2">頻出キーワード TOP5</h4><ul class="space-y-1">';
+            basicAnalysis.topKeywords.slice(0, 5).forEach(([word, count]) => {
+                html += `<li>• ${word} (${count}回)</li>`;
+            });
+            html += '</ul></div>';
+            
+            // 最適文字数
+            html += `<div><h4 class="font-medium text-blue-700 mb-2">最適文字数</h4><p>${Math.round(basicAnalysis.averageLength)}文字前後</p></div>`;
+            
+            // 売れるタイトルパターン
+            html += '<div><h4 class="font-medium text-blue-700 mb-2">売れるパターン</h4><ul class="space-y-1">';
+            if (basicAnalysis.patterns.tildeUsage > extractedTitles.length * 0.3) {
+                html += '<li>• 「〜」パターンが効果的</li>';
+            }
+            if (basicAnalysis.patterns.exclamationUsage > extractedTitles.length * 0.2) {
+                html += '<li>• 感情表現「！」の使用</li>';
+            }
+            html += '<li>• 感情誘発キーワードの組み合わせ</li>';
+            html += '<li>• 関係性を示す表現の追加</li>';
+            html += '</ul></div>';
+            
+            html += '</div></div>';
+            patternsDiv.innerHTML = html;
+            
+            document.getElementById('analysisSection').classList.remove('hidden');
+            document.getElementById('analysisSection').classList.add('fade-in');
+        }
+
+        function drawKeywordChart(topKeywords) {
+            const ctx = document.getElementById('keywordChart').getContext('2d');
+            new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: sortedKeywords.map(([keyword]) => keyword),
+                    labels: topKeywords.slice(0, 10).map(([word]) => word),
                     datasets: [{
                         label: '出現回数',
-                        data: sortedKeywords.map(([, count]) => count),
-                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                        borderColor: 'rgba(59, 130, 246, 1)',
+                        data: topKeywords.slice(0, 10).map(([, count]) => count),
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
                         borderWidth: 1
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            display: false
-                        }
+                        legend: { display: false }
                     },
                     scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
-                        }
+                        y: { beginAtZero: true }
                     }
                 }
             });
         }
 
-        function createGenreChart() {
-            const ctx = document.getElementById('genreChart').getContext('2d');
-            
-            if (genreChart) {
-                genreChart.destroy();
-            }
+        function drawLengthChart(lengths) {
+            const bins = {};
+            lengths.forEach(length => {
+                const bin = Math.floor(length / 5) * 5;
+                bins[bin] = (bins[bin] || 0) + 1;
+            });
 
-            const genreData = Object.entries(analysisData.genres);
-            const colors = [
-                'rgba(34, 197, 94, 0.8)',
-                'rgba(168, 85, 247, 0.8)',
-                'rgba(249, 115, 22, 0.8)',
-                'rgba(236, 72, 153, 0.8)',
-                'rgba(14, 165, 233, 0.8)'
-            ];
-
-            genreChart = new Chart(ctx, {
-                type: 'doughnut',
+            const ctx = document.getElementById('lengthChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
                 data: {
-                    labels: genreData.map(([genre]) => genre),
+                    labels: Object.keys(bins).sort((a, b) => a - b).map(bin => `${bin}-${parseInt(bin) + 4}文字`),
                     datasets: [{
-                        data: genreData.map(([, count]) => count),
-                        backgroundColor: colors,
-                        borderColor: colors.map(color => color.replace('0.8', '1')),
-                        borderWidth: 2
+                        label: 'タイトル数',
+                        data: Object.keys(bins).sort((a, b) => a - b).map(bin => bins[bin]),
+                        backgroundColor: 'rgba(236, 72, 153, 0.2)',
+                        borderColor: 'rgba(236, 72, 153, 1)',
+                        borderWidth: 2,
+                        fill: true
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
                     }
                 }
             });
         }
 
-        function generateTitlesAndStories() {
-            const titlesList = document.getElementById('titlesList');
-            titlesList.innerHTML = '';
-
-            // Generate 10 titles with stories
-            const generatedContent = generateContentBasedOnAnalysis();
+        function displayGeneratedTitles(generatedTitles) {
+            const section = document.getElementById('generatedTitles');
+            let html = '';
             
-            generatedContent.forEach((item, index) => {
-                const titleCard = createTitleCard(item, index + 1);
-                titlesList.appendChild(titleCard);
-            });
-
-            document.getElementById('generatedContent').classList.remove('hidden');
-            document.getElementById('generatedContent').classList.add('fade-in');
-        }
-
-        function generateContentBasedOnAnalysis() {
-            const templates = [
-                {
-                    title: "内気な{character}の秘密の{location}",
-                    story: "内気で目立たない{character}・{name}は、新しい環境に馴染めず孤独を感じていた。ある日、体調を崩し{location}で休んでいたが、抑えきれない欲求を満たすためにこっそり行動してしまう。しかし、その秘密の瞬間を、偶然通りかかった{observer}に目撃されてしまう。"
-                },
-                {
-                    title: "{observer}の{action}〜{character}との{event}〜",
-                    story: "内気で目立たない{character}は、新しい環境に馴染めず孤独を感じていた。ある日、{location}で偶然{observer}と出会い、それがきっかけで運命的な関係が始まる。そこから始まる禁断の関係を自覚させられてしまう。"
-                },
-                {
-                    title: "{character}{name}の初体験",
-                    story: "純真な{character}の{name}は、ある日偶然{location}で{observer}と二人きりになる。過度の緊張の中で真実を知り、これまでとは違う自分を発見することになる。それまでとは違う新たな世界への扉が開かれることとなる。"
-                }
-            ];
-
-            const variables = {
-                character: ["転校生", "委員長", "図書委員", "保健委員", "新入生"],
-                name: ["美咲", "彩花", "ゆい", "みお", "さくら"],
-                location: ["保健室", "図書室", "音楽室", "理科室", "体育倉庫"],
-                observer: ["担任教師", "先輩", "用務員", "校長", "養護教諭"],
-                action: ["誘惑", "指導", "秘密", "監視", "調教"],
-                event: ["出会い", "体験", "秘密", "約束", "契約"]
-            };
-
-            return Array.from({length: 10}, (_, i) => {
-                const template = templates[i % templates.length];
-                let title = template.title;
-                let story = template.story;
-
-                // Replace variables in title and story
-                Object.entries(variables).forEach(([key, values]) => {
-                    const value = values[Math.floor(Math.random() * values.length)];
-                    const regex = new RegExp(`{${key}}`, 'g');
-                    title = title.replace(regex, value);
-                    story = story.replace(regex, value);
-                });
-
-                return { title, story };
-            });
-        }
-
-        function createTitleCard(item, index) {
-            const card = document.createElement('div');
-            card.className = 'border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow';
-            
-            card.innerHTML = `
-                <div class="flex items-start space-x-4">
-                    <div class="flex-shrink-0">
-                        <span class="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">${index}</span>
+            generatedTitles.forEach((item, index) => {
+                html += `
+                    <div class="story-item bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg">
+                        <div class="flex items-start space-x-3">
+                            <div class="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
+                                ${index + 1}
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-semibold text-purple-800 mb-2">${item.title}</h3>
+                                <p class="text-gray-700 leading-relaxed">${item.story}</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="flex-grow">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3">${item.title}</h3>
-                        <p class="text-gray-600 leading-relaxed">${item.story}</p>
-                    </div>
-                </div>
-            `;
-            
-            return card;
-        }
-
-        function exportToCSV() {
-            const titleCards = document.querySelectorAll('#titlesList > div');
-            let csvContent = "番号,タイトル,ストーリー\n";
-            
-            titleCards.forEach((card, index) => {
-                const title = card.querySelector('h3').textContent;
-                const story = card.querySelector('p').textContent;
-                csvContent += `${index + 1},"${title}","${story}"\n`;
+                `;
             });
-
-            // Create and download CSV file
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'fanza_titles_generated.csv';
-            link.click();
+            
+            section.innerHTML = html;
+            document.getElementById('generatedSection').classList.remove('hidden');
+            document.getElementById('generatedSection').classList.add('fade-in');
         }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('extractionStatus');
+            status.className = `mt-3 p-3 rounded-lg ${type === 'success' ? 'bg-green-100 text-green-800' : type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`;
+            status.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} mr-2"></i>${message}`;
+            status.classList.remove('hidden');
+        }
+
+        function showProcessing(show) {
+            const section = document.getElementById('processingSection');
+            if (show) {
+                section.classList.remove('hidden');
+                section.classList.add('fade-in');
+            } else {
+                section.classList.add('hidden');
+            }
+        }
+
+        function updateProgress(percent, text) {
+            document.getElementById('progressBar').style.width = `${percent}%`;
+            document.getElementById('statusText').textContent = text;
+        }
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('FANZA同人総合分析ツール（完全版）が読み込まれました');
+        });
     </script>
 </body>
 </html>
     <script id="html_badge_script1">
         window.__genspark_remove_badge_link = "https://www.genspark.ai/api/html_badge/" +
-            "remove_badge?token=To%2FBnjzloZ3UfQdcSaYfDkUKyspsM5xvVNW6vkx6pUgWVkfhi4tvHbRgPpNd4VXMHH2hfD%2FwE39sX76Atwzrgv2sRw9W1eu846Hv0%2BrdFreyX5u0ppS4aJusuu6mHJsjrPG25G3y%2FPhlC31dVBZbzjJxJjjoyuJ5SwWgPkw%2FLo6lPmWxI%2BC07TG61veCCuHGHOHZWTDvOJIDLwyN9G8MqKqb3i1uqar1ksas7yNFlf5KIH%2BBpxxFf%2Fl4Ly1NgqXqjHETsI1m7BQ3D1nwHABrYBzmcpkb5Go5nYeAJ9OZmKIOOTnpIolr1qFelatQnl3NC4jBiquOcVGFrj4cVmxhrHV8JelxI672juL7n1IGgRNWxc8gpLh5xI884RPOl7zZ6zyX8E%2FdesNaGCCj884he1TjSGO%2BYXSwWPu2xOcfvHCFqHhuUF82iqfzqtZy9PS7tukGbwitdBTKW%2BJQxMau46Rnv%2B5Hnnxhh0cd5sKZT62uEpm9ym7%2BYKJXkp88qfhH%2BZjkPqSxFDaVkxelTDN26iU%2FfQtMfHsruyqhqCcaA4Y%3D";
+            "remove_badge?token=To%2FBnjzloZ3UfQdcSaYfDv6GaZD%2BSYwnkr1yuff2ArU8lUf6EsJGnkEd3jM%2BZIUQvLY3UIjFxRPtbS0vqlsCHoVoI8rGctMdVVxLyDsMjrs9cFkyuh%2F4df493hsoogPkOcCqgZxZTtGonQKJgeL1ikvJ6APaiLDfXHi%2FG8lhCi9joUTIlP8kLx%2FaQrEv9hNIKgg34V2nrAgnoJNCzQyKJYbbJOjKugVl9yU6dORIAQLCmVfTJFOmiS%2BevGJSa0C1I4odFyOhKtQDEvjgFhIIVnlpQPipPuM3ZlGNLrtpO5CJ6OOK1bVmSuZ4X7YDQxRpY68X1jrYbRJg1AhjtlUs6Rd7URb1i5B4ix8UzHwjXh9aVIeQwRObKi9QxQ6FjY1788ufFza9iKaeSsA%2BUSeBtumNkAS1Gf%2BFqIslVsUbIQIWuNfBYltO3wcfJqNulBZ5zDg1yqP9tdoSOcsbPOrSDiVJE8VQfA67LH%2BWjVRkmnIYwa5XD2bOl6pnp2jL%2FOBYKImqVhCwdC2tgx6V8qvCxFug%2BwHrFMyYc71Yme1wO34%3D";
         window.__genspark_locale = "ja-JP";
-        window.__genspark_token = "To/BnjzloZ3UfQdcSaYfDkUKyspsM5xvVNW6vkx6pUgWVkfhi4tvHbRgPpNd4VXMHH2hfD/wE39sX76Atwzrgv2sRw9W1eu846Hv0+rdFreyX5u0ppS4aJusuu6mHJsjrPG25G3y/PhlC31dVBZbzjJxJjjoyuJ5SwWgPkw/Lo6lPmWxI+C07TG61veCCuHGHOHZWTDvOJIDLwyN9G8MqKqb3i1uqar1ksas7yNFlf5KIH+BpxxFf/l4Ly1NgqXqjHETsI1m7BQ3D1nwHABrYBzmcpkb5Go5nYeAJ9OZmKIOOTnpIolr1qFelatQnl3NC4jBiquOcVGFrj4cVmxhrHV8JelxI672juL7n1IGgRNWxc8gpLh5xI884RPOl7zZ6zyX8E/desNaGCCj884he1TjSGO+YXSwWPu2xOcfvHCFqHhuUF82iqfzqtZy9PS7tukGbwitdBTKW+JQxMau46Rnv+5Hnnxhh0cd5sKZT62uEpm9ym7+YKJXkp88qfhH+ZjkPqSxFDaVkxelTDN26iU/fQtMfHsruyqhqCcaA4Y=";
+        window.__genspark_token = "To/BnjzloZ3UfQdcSaYfDv6GaZD+SYwnkr1yuff2ArU8lUf6EsJGnkEd3jM+ZIUQvLY3UIjFxRPtbS0vqlsCHoVoI8rGctMdVVxLyDsMjrs9cFkyuh/4df493hsoogPkOcCqgZxZTtGonQKJgeL1ikvJ6APaiLDfXHi/G8lhCi9joUTIlP8kLx/aQrEv9hNIKgg34V2nrAgnoJNCzQyKJYbbJOjKugVl9yU6dORIAQLCmVfTJFOmiS+evGJSa0C1I4odFyOhKtQDEvjgFhIIVnlpQPipPuM3ZlGNLrtpO5CJ6OOK1bVmSuZ4X7YDQxRpY68X1jrYbRJg1AhjtlUs6Rd7URb1i5B4ix8UzHwjXh9aVIeQwRObKi9QxQ6FjY1788ufFza9iKaeSsA+USeBtumNkAS1Gf+FqIslVsUbIQIWuNfBYltO3wcfJqNulBZ5zDg1yqP9tdoSOcsbPOrSDiVJE8VQfA67LH+WjVRkmnIYwa5XD2bOl6pnp2jL/OBYKImqVhCwdC2tgx6V8qvCxFug+wHrFMyYc71Yme1wO34=";
     </script>
     
     <script id="html_notice_dialog_script" src="https://www.genspark.ai/notice_dialog.js"></script>

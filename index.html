@@ -4,529 +4,358 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FANZA同人総合分析ツール（完全版）</title>
+    <title>FANZA同人総合分析ツール - HTMLソース特化版</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
-        body { font-family: 'Noto Sans JP', sans-serif; }
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .glass-effect { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.1); }
-        .analysis-card { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); }
-        .story-item { border-left: 4px solid #667eea; }
-        .loading-spinner { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .fade-in { animation: fadeIn 0.5s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .analysis-item {
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+        .analysis-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+        .loading-dots {
+            animation: loading 1.5s infinite;
+        }
+        @keyframes loading {
+            0%, 80%, 100% { opacity: 0; }
+            40% { opacity: 1; }
+        }
+        .success-text { color: #10b981; }
+        .error-text { color: #ef4444; }
+        .warning-text { color: #f59e0b; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <div class="gradient-bg py-8 mb-8">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="text-center text-white">
-                <h1 class="text-4xl font-bold mb-4">
-                    <i class="fas fa-chart-line mr-3"></i>
-                    FANZA同人総合分析ツール
-                </h1>
-                <p class="text-xl opacity-90">HTMLソース分析からAI生成まで - データ分析の決定版</p>
-            </div>
+    <!-- Header -->
+    <header class="gradient-bg text-white py-8">
+        <div class="container mx-auto px-4 text-center">
+            <h1 class="text-4xl font-bold mb-2">
+                <i class="fas fa-chart-line mr-3"></i>FANZA同人総合分析ツール
+            </h1>
+            <p class="text-lg opacity-90">HTMLソース特化版 - 真のデータドリブン分析</p>
         </div>
-    </div>
+    </header>
 
-    <div class="max-w-6xl mx-auto px-4 space-y-8">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
         <!-- API設定セクション -->
-        <div class="bg-white rounded-xl p-6 analysis-card">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">
-                <i class="fas fa-key text-purple-600 mr-2"></i>
-                Gemini AI設定（オプション）
+        <div class="bg-white rounded-lg card-shadow p-6 mb-8">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">
+                <i class="fas fa-cog mr-2 text-blue-600"></i>Gemini API設定
             </h2>
-            <div class="grid md:grid-cols-2 gap-4">
-                <div>
+            <div class="grid md:grid-cols-3 gap-4 items-end">
+                <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Gemini API Key</label>
-                    <input type="password" id="geminiApiKey" placeholder="AIzaSy..." 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    <p class="text-xs text-gray-500 mt-1">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        より高精度な分析のため。未入力でも基本分析は可能です
-                    </p>
+                    <input type="password" id="geminiApiKey" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="AIzaSy...">
+                    <div class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-lock mr-1"></i>Google AI Studio で無料取得可能
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">分析レベル</label>
-                    <select id="analysisLevel" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                        <option value="basic">基本分析</option>
-                        <option value="standard" selected>標準分析</option>
-                        <option value="advanced">詳細分析</option>
-                    </select>
-                </div>
+                <button id="testApiBtn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition duration-200">
+                    <i class="fas fa-check mr-2"></i>APIテスト
+                </button>
             </div>
+            <div id="apiStatus" class="mt-4"></div>
         </div>
 
-        <!-- データ入力セクション -->
-        <div class="bg-white rounded-xl p-6 analysis-card">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">
-                <i class="fas fa-code text-blue-600 mr-2"></i>
-                HTMLソースコード入力
-            </h2>
+        <!-- HTMLソース解析セクション -->
+        <div class="bg-white rounded-lg card-shadow p-6 mb-8">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">
+                <i class="fas fa-code mr-2 text-green-600"></i>HTMLソース解析
+            </h3>
+            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                <h4 class="font-semibold text-blue-800 mb-2">
+                    <i class="fas fa-info-circle mr-2"></i>取得方法
+                </h4>
+                <ol class="text-sm text-blue-700 space-y-1">
+                    <li>1. FANZAの作品一覧ページを開く</li>
+                    <li>2. Ctrl+U (Mac: Cmd+U) でページソースを表示</li>
+                    <li>3. Ctrl+A でソース全体を選択</li>
+                    <li>4. Ctrl+C でコピーして下記に貼り付け</li>
+                </ol>
+            </div>
             <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        FANZAページのHTMLソースコード
-                    </label>
-                    <p class="text-sm text-gray-600 mb-3">
-                        <i class="fas fa-lightbulb text-yellow-500 mr-1"></i>
-                        FANZA作品一覧ページで「Ctrl+U」(Windows) または「Cmd+U」(Mac) → 全てコピー → 下記に貼り付け
-                    </p>
-                    <textarea id="htmlSource" rows="10" 
-                              placeholder="<!DOCTYPE html>&#10;<html>&#10;...FANZAページのHTMLソースコードをここに貼り付けてください..."
-                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm">
-                    </textarea>
-                </div>
-                <button onclick="extractTitles()" 
-                        class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium">
-                    <i class="fas fa-extract mr-2"></i>
-                    タイトルを抽出
-                </button>
-                <div id="extractionStatus" class="hidden"></div>
-            </div>
-        </div>
-
-        <!-- 抽出結果表示 -->
-        <div id="extractedTitlesSection" class="hidden bg-white rounded-xl p-6 analysis-card">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">
-                <i class="fas fa-list text-green-600 mr-2"></i>
-                抽出されたタイトル一覧
-            </h2>
-            <div id="extractedTitlesDisplay" class="bg-gray-50 p-4 rounded-lg max-h-64 overflow-y-auto"></div>
-            <div class="mt-4">
-                <button onclick="startAnalysis()" 
-                        class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 font-medium">
-                    <i class="fas fa-brain mr-2"></i>
-                    AI分析 & タイトル生成開始
+                <textarea id="htmlSource" rows="8" 
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                          placeholder="FANZAページのHTMLソースコードを貼り付けてください...&#10;&#10;対応ページ例:&#10;• 新着順: /sort=date/&#10;• 売上順: /sort=sales/&#10;• 人気順: /sort=popular/&#10;• ランキング: /ranking/"></textarea>
+                <button id="extractFromHtmlBtn" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg transition duration-200 text-lg font-semibold">
+                    <i class="fas fa-search mr-2"></i>HTMLから抽出
                 </button>
             </div>
         </div>
 
-        <!-- 分析結果セクション -->
-        <div id="analysisSection" class="hidden bg-white rounded-xl p-6 analysis-card">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">
-                <i class="fas fa-chart-bar text-indigo-600 mr-2"></i>
-                分析結果
-            </h2>
+        <!-- AI分析開始ボタン -->
+        <div class="text-center mb-8">
+            <button id="startAnalysisBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-lg text-lg font-semibold transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <i class="fas fa-brain mr-2"></i>Gemini AI分析 & 生成開始
+            </button>
+            <div id="analysisProgress" class="mt-4"></div>
+        </div>
+
+        <!-- 抽出されたタイトル一覧 -->
+        <div id="extractedTitlesSection" class="bg-white rounded-lg card-shadow p-6 mb-8 hidden">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">
+                <i class="fas fa-list mr-2 text-indigo-600"></i>抽出されたタイトル一覧
+            </h3>
+            <div id="extractedTitlesList" class="grid md:grid-cols-2 gap-4 max-h-96 overflow-y-auto"></div>
+        </div>
+
+        <!-- AI分析結果 -->
+        <div id="analysisResultsSection" class="bg-white rounded-lg card-shadow p-6 mb-8 hidden">
+            <h3 class="text-xl font-bold mb-6 text-gray-800">
+                <i class="fas fa-chart-pie mr-2 text-purple-600"></i>AI分析結果
+            </h3>
             <div class="grid md:grid-cols-2 gap-6">
                 <div>
-                    <h3 class="text-lg font-semibold mb-3">キーワード頻度</h3>
-                    <canvas id="keywordChart"></canvas>
+                    <h4 class="text-lg font-semibold mb-3">キーワード頻度分析</h4>
+                    <canvas id="keywordChart" width="400" height="300"></canvas>
                 </div>
                 <div>
-                    <h3 class="text-lg font-semibold mb-3">文字数分布</h3>
-                    <canvas id="lengthChart"></canvas>
+                    <h4 class="text-lg font-semibold mb-3">分析詳細</h4>
+                    <div id="analysisDetails" class="space-y-2"></div>
                 </div>
             </div>
-            <div id="analysisPatterns" class="mt-6"></div>
         </div>
 
-        <!-- AI生成結果 -->
-        <div id="generatedSection" class="hidden bg-white rounded-xl p-6 analysis-card">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">
-                <i class="fas fa-magic text-purple-600 mr-2"></i>
-                AI生成タイトル & ストーリー
-            </h2>
-            <div id="generatedTitles" class="space-y-4"></div>
-        </div>
-
-        <!-- 処理状況 -->
-        <div id="processingSection" class="hidden bg-white rounded-xl p-6 analysis-card text-center">
-            <div class="loading-spinner fas fa-cog text-4xl text-purple-600 mb-4"></div>
-            <p class="text-lg text-gray-700">分析処理中...</p>
-            <div class="w-full bg-gray-200 rounded-full h-2 mt-4">
-                <div id="progressBar" class="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
-            </div>
-            <p id="statusText" class="text-sm text-gray-600 mt-2">データを解析しています...</p>
+        <!-- AI生成タイトル & ストーリー -->
+        <div id="generatedContentSection" class="bg-white rounded-lg card-shadow p-6 hidden">
+            <h3 class="text-xl font-bold mb-6 text-gray-800">
+                <i class="fas fa-magic mr-2 text-pink-600"></i>AI生成タイトル & ストーリー
+            </h3>
+            <div id="generatedContent" class="space-y-4"></div>
         </div>
     </div>
 
     <script>
+        // グローバル変数
         let extractedTitles = [];
-        let analysisResults = {};
+        let analysisResults = null;
 
-        function extractTitles() {
-            const htmlSource = document.getElementById('htmlSource').value.trim();
-            if (!htmlSource) {
-                alert('HTMLソースコードを入力してください');
-                return;
-            }
+        // Gemini API設定
+        const GEMINI_API_ENDPOINTS = [
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+            'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent'
+        ];
 
-            showStatus('HTMLを解析中...', 'info');
-            
-            try {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(htmlSource, 'text/html');
-                
-                // FANZAの作品タイトルを抽出する複数のセレクタ
-                const selectors = [
-                    'a[href*="/detail/=/cid="]',
-                    'a[href*="/detail/"]',
-                    '.work-title',
-                    '.tmb a[title]',
-                    '.product-title'
-                ];
+        // APIキー管理
+        function saveApiKey(key) {
+            localStorage.setItem('geminiApiKey', key);
+        }
 
-                let titles = [];
-                
-                for (const selector of selectors) {
-                    const elements = doc.querySelectorAll(selector);
-                    elements.forEach(element => {
-                        let title = '';
-                        if (element.hasAttribute('title')) {
-                            title = element.getAttribute('title');
-                        } else if (element.textContent) {
-                            title = element.textContent;
-                        } else if (element.getAttribute('alt')) {
-                            title = element.getAttribute('alt');
-                        }
-                        
-                        title = title.trim();
-                        if (title && title.length > 3 && title.length < 100) {
-                            // 不要な文字列を除外
-                            if (!title.includes('undefined') && 
-                                !title.includes('null') && 
-                                !title.match(/^(オンライン|PCゲーム|FANZA|月額|無料)/)) {
-                                titles.push(title);
-                            }
-                        }
-                    });
-                    
-                    if (titles.length > 50) break; // 十分な数が抽出できたら終了
-                }
-
-                // 重複を除去
-                extractedTitles = [...new Set(titles)];
-                
-                if (extractedTitles.length === 0) {
-                    showStatus('タイトルの抽出に失敗しました。HTMLソースコードを確認してください。', 'error');
-                    return;
-                }
-
-                showStatus(`${extractedTitles.length}件のタイトルを抽出しました`, 'success');
-                displayExtractedTitles();
-                
-            } catch (error) {
-                console.error('抽出エラー:', error);
-                showStatus('HTMLの解析中にエラーが発生しました', 'error');
+        function loadApiKey() {
+            const key = localStorage.getItem('geminiApiKey');
+            if (key) {
+                document.getElementById('geminiApiKey').value = key;
             }
         }
 
-        function displayExtractedTitles() {
-            const display = document.getElementById('extractedTitlesDisplay');
-            const section = document.getElementById('extractedTitlesSection');
-            
-            let html = `<p class="text-sm text-gray-600 mb-3">抽出件数: ${extractedTitles.length}件</p>`;
-            html += '<div class="grid md:grid-cols-2 gap-2 text-sm">';
-            
-            extractedTitles.slice(0, 100).forEach((title, index) => {
-                html += `<div class="p-2 bg-white rounded border">${index + 1}. ${title}</div>`;
-            });
-            
-            html += '</div>';
-            
-            if (extractedTitles.length > 100) {
-                html += `<p class="text-xs text-gray-500 mt-2">※ 表示は上位100件まで（全${extractedTitles.length}件を分析対象とします）</p>`;
-            }
-            
-            display.innerHTML = html;
-            section.classList.remove('hidden');
-            section.classList.add('fade-in');
-        }
-
-        async function startAnalysis() {
-            if (extractedTitles.length === 0) {
-                alert('まずタイトルを抽出してください');
-                return;
+        // Gemini API呼び出し
+        async function callGeminiAPI(prompt, apiKey, retryCount = 0) {
+            if (retryCount >= GEMINI_API_ENDPOINTS.length) {
+                throw new Error('すべてのAPIエンドポイントで失敗しました');
             }
 
-            showProcessing(true);
-            updateProgress(0, 'データ分析を開始...');
-
+            const endpoint = GEMINI_API_ENDPOINTS[retryCount];
+            
             try {
-                // 基本分析
-                updateProgress(25, 'キーワード分析中...');
-                const basicAnalysis = analyzeBasicPatterns();
-                
-                updateProgress(50, 'パターン解析中...');
-                const patterns = analyzePatterns();
-                
-                updateProgress(75, 'AI分析中...');
-                let aiAnalysis = null;
-                const apiKey = document.getElementById('geminiApiKey').value;
-                
-                if (apiKey) {
-                    try {
-                        aiAnalysis = await analyzeWithGemini(apiKey);
-                    } catch (error) {
-                        console.warn('Gemini API分析に失敗、フォールバック分析を使用:', error);
-                        aiAnalysis = generateFallbackAnalysis();
+                const response = await fetch(`${endpoint}?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: prompt
+                            }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.8,
+                            topK: 40,
+                            topP: 0.95,
+                            maxOutputTokens: 4096,
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    if (response.status === 404 || response.status === 400) {
+                        // 別のエンドポイントを試す
+                        return await callGeminiAPI(prompt, apiKey, retryCount + 1);
                     }
-                } else {
-                    aiAnalysis = generateFallbackAnalysis();
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
                 }
+
+                const data = await response.json();
                 
-                updateProgress(90, 'タイトル生成中...');
-                const generatedTitles = generateTitles(basicAnalysis, patterns, aiAnalysis);
-                
-                updateProgress(100, '完了');
-                
-                // 結果表示
-                displayAnalysisResults(basicAnalysis, patterns);
-                displayGeneratedTitles(generatedTitles);
-                
-                showProcessing(false);
-                
+                if (data.error) {
+                    throw new Error(`API Error: ${data.error.message}`);
+                }
+
+                return data.candidates[0].content.parts[0].text;
             } catch (error) {
-                console.error('分析エラー:', error);
-                updateProgress(0, '分析中にエラーが発生しました');
-                showProcessing(false);
+                if (retryCount < GEMINI_API_ENDPOINTS.length - 1) {
+                    return await callGeminiAPI(prompt, apiKey, retryCount + 1);
+                }
+                throw error;
             }
         }
 
-        function analyzeBasicPatterns() {
-            const keywords = {};
-            const lengths = [];
-            const patterns = {
-                tildeUsage: 0,
-                exclamationUsage: 0,
-                questionUsage: 0
-            };
+        // APIテスト
+        async function testGeminiAPI() {
+            const apiKey = document.getElementById('geminiApiKey').value.trim();
+            const statusDiv = document.getElementById('apiStatus');
+            
+            if (!apiKey) {
+                statusDiv.innerHTML = '<div class="text-red-600"><i class="fas fa-exclamation-triangle mr-2"></i>APIキーを入力してください</div>';
+                return false;
+            }
 
-            extractedTitles.forEach(title => {
-                lengths.push(title.length);
+            if (!apiKey.startsWith('AIza')) {
+                statusDiv.innerHTML = '<div class="text-red-600"><i class="fas fa-times mr-2"></i>無効なAPIキー形式です</div>';
+                return false;
+            }
+
+            statusDiv.innerHTML = '<div class="text-blue-600"><i class="fas fa-spinner fa-spin mr-2"></i>APIテスト中...</div>';
+
+            try {
+                const testPrompt = "こんにちは、テストです。";
+                const response = await callGeminiAPI(testPrompt, apiKey);
                 
-                // 特殊文字の使用頻度
-                if (title.includes('〜') || title.includes('～')) patterns.tildeUsage++;
-                if (title.includes('！') || title.includes('!')) patterns.exclamationUsage++;
-                if (title.includes('？') || title.includes('?')) patterns.questionUsage++;
+                saveApiKey(apiKey);
+                statusDiv.innerHTML = '<div class="success-text"><i class="fas fa-check mr-2"></i>API接続成功！分析を開始できます。</div>';
+                return true;
+            } catch (error) {
+                console.error('API Test Error:', error);
+                statusDiv.innerHTML = `<div class="error-text"><i class="fas fa-times mr-2"></i>API接続失敗: ${error.message}</div>`;
+                return false;
+            }
+        }
 
-                // キーワード抽出（形態素解析的なアプローチ）
-                const words = title.match(/[ぁ-んァ-ヶー一-龯]+/g) || [];
-                words.forEach(word => {
-                    if (word.length >= 2) {
-                        keywords[word] = (keywords[word] || 0) + 1;
+        // HTMLからタイトル抽出
+        function extractTitlesFromHTML(htmlContent) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlContent, 'text/html');
+            
+            const selectors = [
+                'a[href*="/detail/=/cid="]',
+                'a[href*="/detail/"]',
+                '.work-title a',
+                '.tmb a[title]',
+                'a[data-title]',
+                '.product-title a'
+            ];
+
+            const titles = new Set();
+            
+            selectors.forEach(selector => {
+                const elements = doc.querySelectorAll(selector);
+                elements.forEach(element => {
+                    let title = element.textContent?.trim() || 
+                               element.getAttribute('title')?.trim() || 
+                               element.getAttribute('data-title')?.trim();
+                    
+                    if (title && title.length > 2 && title.length < 100) {
+                        // フィルタリング
+                        if (!title.match(/^(オンライン|PC|FANZA|無料|月額|ライブ|ログイン|新規|会員)/)) {
+                            titles.add(title);
+                        }
                     }
                 });
             });
 
-            // 上位キーワードを取得
-            const topKeywords = Object.entries(keywords)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 20);
-
-            return {
-                topKeywords,
-                averageLength: lengths.reduce((a, b) => a + b, 0) / lengths.length,
-                lengthDistribution: lengths,
-                patterns
-            };
+            return Array.from(titles);
         }
 
-        function analyzePatterns() {
-            const structures = {};
-            const genres = {};
-            const characters = {};
-
-            extractedTitles.forEach(title => {
-                // 構造パターン分析
-                if (title.includes('と') && title.includes('の')) {
-                    structures['AとBの関係'] = (structures['AとBの関係'] || 0) + 1;
-                }
-                if (title.match(/な[ぁ-ん]+/)) {
-                    structures['形容詞+名詞'] = (structures['形容詞+名詞'] || 0) + 1;
-                }
-                if (title.includes('初めて') || title.includes('初体験')) {
-                    structures['初体験系'] = (structures['初体験系'] || 0) + 1;
-                }
-
-                // ジャンル分析
-                if (title.match(/学校|学園|生徒|先生|教師|クラス/)) {
-                    genres['学園系'] = (genres['学園系'] || 0) + 1;
-                }
-                if (title.match(/職場|会社|上司|同僚|オフィス/)) {
-                    genres['職場系'] = (genres['職場系'] || 0) + 1;
-                }
-                if (title.match(/家族|兄妹|姉弟|母親|父親/)) {
-                    genres['家族系'] = (genres['家族系'] || 0) + 1;
-                }
-
-                // キャラクター分析
-                if (title.match(/転校生|新入/)) {
-                    characters['転校生'] = (characters['転校生'] || 0) + 1;
-                }
-                if (title.match(/幼なじみ|幼馴染/)) {
-                    characters['幼なじみ'] = (characters['幼なじみ'] || 0) + 1;
-                }
-                if (title.match(/先輩|後輩/)) {
-                    characters['先輩後輩'] = (characters['先輩後輩'] || 0) + 1;
-                }
-            });
-
-            return { structures, genres, characters };
-        }
-
-        async function analyzeWithGemini(apiKey) {
-            const prompt = `以下の${extractedTitles.length}件のFANZA同人作品タイトルを分析し、売れる法則を抽出してください：
-
-${extractedTitles.slice(0, 50).join('\n')}
-
-以下の観点で分析し、JSON形式で回答してください：
-{
-  "trendingKeywords": ["キーワード1", "キーワード2", ...],
-  "effectiveStructures": ["構造1", "構造2", ...],
-  "popularGenres": ["ジャンル1", "ジャンル2", ...],
-  "emotionalTriggers": ["感情誘発語1", "感情誘発語2", ...],
-  "recommendations": ["推奨事項1", "推奨事項2", ...]
-}`;
-
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 1024
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.status}`);
+        // タイトル表示
+        function displayExtractedTitles(titles) {
+            extractedTitles = titles;
+            const section = document.getElementById('extractedTitlesSection');
+            const list = document.getElementById('extractedTitlesList');
+            
+            if (titles.length === 0) {
+                list.innerHTML = '<div class="text-gray-500 col-span-2">タイトルが抽出できませんでした。HTMLソースが正しく貼り付けられているか確認してください。</div>';
+                return;
             }
 
-            const data = await response.json();
-            const text = data.candidates[0].content.parts[0].text;
+            list.innerHTML = titles.map((title, index) => `
+                <div class="analysis-item bg-gray-50 p-3 rounded-lg">
+                    <span class="text-sm text-gray-500">${index + 1}.</span>
+                    <span class="ml-2">${title}</span>
+                </div>
+            `).join('');
             
-            try {
-                return JSON.parse(text.replace(/```json|```/g, ''));
-            } catch {
-                return generateFallbackAnalysis();
-            }
+            section.classList.remove('hidden');
+            
+            // 分析ボタンを有効化
+            document.getElementById('startAnalysisBtn').disabled = false;
         }
 
-        function generateFallbackAnalysis() {
-            return {
-                trendingKeywords: ['転校生', '秘密', '初体験', '先生', '幼なじみ'],
-                effectiveStructures: ['〜な彼女', 'AとBの関係', '初めての〜'],
-                popularGenres: ['学園系', '純愛系', '禁断系'],
-                emotionalTriggers: ['切ない', '純粋', '背徳', '甘い'],
-                recommendations: ['感情的な対比を使う', '具体的な関係性を示す', 'シチュエーションを明確にする']
-            };
+        // 分析結果表示
+        function displayAnalysisResults(analysis) {
+            const section = document.getElementById('analysisResultsSection');
+            const details = document.getElementById('analysisDetails');
+            
+            // 分析詳細表示
+            details.innerHTML = `
+                <div class="analysis-item bg-blue-50 p-4 rounded-lg">
+                    <h5 class="font-semibold mb-2">データセット概要</h5>
+                    <p class="text-sm text-gray-700">抽出件数: ${extractedTitles.length}件</p>
+                </div>
+                <div class="analysis-item bg-green-50 p-4 rounded-lg">
+                    <h5 class="font-semibold mb-2">AI分析状況</h5>
+                    <p class="text-sm text-gray-700">Gemini AI による動的分析完了</p>
+                </div>
+                <div class="analysis-item bg-purple-50 p-4 rounded-lg">
+                    <h5 class="font-semibold mb-2">分析結果</h5>
+                    <p class="text-sm text-gray-700">売れる法則を抽出し、タイトル生成に反映</p>
+                </div>
+            `;
+
+            // キーワード分析グラフ
+            displayKeywordChart(extractedTitles);
+            
+            section.classList.remove('hidden');
         }
 
-        function generateTitles(basicAnalysis, patterns, aiAnalysis) {
-            const titles = [];
-            const templates = [
-                '{adjective}な{character}の{situation}',
-                '{character}と{character2}の{relationship}',
-                '{place}での{character}との{event}',
-                '{time}に{place}で{event}',
-                '{character}が{action}〜{consequence}〜'
-            ];
-
-            const adjectives = ['内気', '純真', '真面目', '元気', '大胆', '恥ずかしがり屋', '優等生', '清楚', '活発', '無邪気'];
-            const characters = ['転校生', '彼女', '先生', '生徒会長', '幼なじみ', '先輩', '後輩', '同級生', 'クラスメイト', '部活仲間'];
-            const characters2 = ['先生', '同級生', '上級生', '部長', 'コーチ', '家庭教師', '隣人', '友達', '恋人', '憧れの人'];
-            const situations = ['秘密', '初体験', '特別な時間', '隠された欲望', '禁断の関係', '恋心', '告白', '誘惑', '初恋', '成長'];
-            const relationships = ['秘密の関係', '禁断の恋', '特別な絆', '初恋物語', '甘い時間', '大人の関係', '純愛', '背徳の愛', '運命の出会い', '切ない恋'];
-            const places = ['保健室', '図書館', '体育館', '屋上', '教室', '部室', '更衣室', '音楽室', '理科室', '放課後の学校'];
-            const events = ['特別授業', '相談', '告白', '秘密の時間', '二人だけの時間', '初体験', '禁断の行為', '甘い誘惑', '運命の出会い', '成長の瞬間'];
-            const times = ['放課後', '深夜', '早朝', '昼休み', '夕暮れ時', '夜中', '朝方', '授業中', '休み時間', '下校時'];
-            const actions = ['見つけてしまった', '誘惑された', '告白された', '選ばれた', '気づいてしまった', '発見した', '出会った', '救われた', '変わった', '成長した'];
-            const consequences = ['秘密の関係', '特別な絆', '禁断の恋', '新しい世界', '大人への階段', '運命の変化', '甘い罠', '背徳の快感', '純愛の始まり', '切ない恋心'];
-
-            for (let i = 0; i < 10; i++) {
-                const template = templates[Math.floor(Math.random() * templates.length)];
-                const title = template
-                    .replace('{adjective}', adjectives[Math.floor(Math.random() * adjectives.length)])
-                    .replace('{character}', characters[Math.floor(Math.random() * characters.length)])
-                    .replace('{character2}', characters2[Math.floor(Math.random() * characters2.length)])
-                    .replace('{situation}', situations[Math.floor(Math.random() * situations.length)])
-                    .replace('{relationship}', relationships[Math.floor(Math.random() * relationships.length)])
-                    .replace('{place}', places[Math.floor(Math.random() * places.length)])
-                    .replace('{event}', events[Math.floor(Math.random() * events.length)])
-                    .replace('{time}', times[Math.floor(Math.random() * times.length)])
-                    .replace('{action}', actions[Math.floor(Math.random() * actions.length)])
-                    .replace('{consequence}', consequences[Math.floor(Math.random() * consequences.length)]);
-
-                const story = generateStory(title);
-                titles.push({ title, story });
-            }
-
-            return titles;
-        }
-
-        function generateStory(title) {
-            const stories = [
-                "内気で目立たない転校生は、新しい学校に馴染めず孤独を感じていた。ある日、体調を崩し保健室で休んでいたが、抑えきれない欲求を満たすためにこっそり自慰をしてしまう。しかし、その秘密の瞬間を、偶然通りかかった変態教師に目撃されてしまう。そこから始まる禁断の関係とは...",
-                "真面目な生徒会長として知られる彼女は、いつも完璧でいることに疲れていた。ある放課後、一人で生徒会室にいると、突然の欲求に襲われる。そこに同じクラスの優しい男子生徒が入ってきて、彼女の乱れた姿を見てしまう。",
-                "活発な体育委員として人気の彼女は、部活動でみんなをまとめるリーダー的存在だった。しかし、人に見せられない秘密の癖があった。ある日の放課後、体育館で一人の時間を過ごしていると、後輩の男子生徒に発見されてしまう。",
-                "おとなしい図書委員として静かに過ごしていた彼女は、いつも静かな生活を送っていた。しかし、教師の小言に傷ついて、図書館の奥で泣いていると、不良として知られる先輩が現れる。そこで彼女の素直な気持ちを見せる一部始終を目撃される。",
-                "人気のない文化系部員として毎日を過ごしていた彼女は、ずっと恋に憧れていた。ある日、部活で残業中に、理想の恋人のような先輩と二人きりになる。緊張で心臓がバクバクしながらも、彼女の隠された一面が露わになってしまう。"
-            ];
-            
-            return stories[Math.floor(Math.random() * stories.length)];
-        }
-
-        function displayAnalysisResults(basicAnalysis, patterns) {
-            // グラフ描画
-            drawKeywordChart(basicAnalysis.topKeywords);
-            drawLengthChart(basicAnalysis.lengthDistribution);
-            
-            // パターン表示
-            const patternsDiv = document.getElementById('analysisPatterns');
-            let html = '<div class="bg-blue-50 p-4 rounded-lg">';
-            html += '<h3 class="text-lg font-semibold mb-3 text-blue-800">抽出された売れる法則</h3>';
-            html += '<div class="grid md:grid-cols-3 gap-4 text-sm">';
-            
-            // 頻出キーワード
-            html += '<div><h4 class="font-medium text-blue-700 mb-2">頻出キーワード TOP5</h4><ul class="space-y-1">';
-            basicAnalysis.topKeywords.slice(0, 5).forEach(([word, count]) => {
-                html += `<li>• ${word} (${count}回)</li>`;
-            });
-            html += '</ul></div>';
-            
-            // 最適文字数
-            html += `<div><h4 class="font-medium text-blue-700 mb-2">最適文字数</h4><p>${Math.round(basicAnalysis.averageLength)}文字前後</p></div>`;
-            
-            // 売れるタイトルパターン
-            html += '<div><h4 class="font-medium text-blue-700 mb-2">売れるパターン</h4><ul class="space-y-1">';
-            if (basicAnalysis.patterns.tildeUsage > extractedTitles.length * 0.3) {
-                html += '<li>• 「〜」パターンが効果的</li>';
-            }
-            if (basicAnalysis.patterns.exclamationUsage > extractedTitles.length * 0.2) {
-                html += '<li>• 感情表現「！」の使用</li>';
-            }
-            html += '<li>• 感情誘発キーワードの組み合わせ</li>';
-            html += '<li>• 関係性を示す表現の追加</li>';
-            html += '</ul></div>';
-            
-            html += '</div></div>';
-            patternsDiv.innerHTML = html;
-            
-            document.getElementById('analysisSection').classList.remove('hidden');
-            document.getElementById('analysisSection').classList.add('fade-in');
-        }
-
-        function drawKeywordChart(topKeywords) {
+        // キーワードチャート表示
+        function displayKeywordChart(titles) {
             const ctx = document.getElementById('keywordChart').getContext('2d');
+            
+            // 簡単なキーワード分析
+            const words = {};
+            titles.forEach(title => {
+                title.split(/[\s～・〜（）【】]/).forEach(word => {
+                    if (word.length > 1) {
+                        words[word] = (words[word] || 0) + 1;
+                    }
+                });
+            });
+
+            const sortedWords = Object.entries(words)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 10);
+
             new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: topKeywords.slice(0, 10).map(([word]) => word),
+                    labels: sortedWords.map(([word]) => word),
                     datasets: [{
                         label: '出現回数',
-                        data: topKeywords.slice(0, 10).map(([, count]) => count),
-                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        data: sortedWords.map(([,count]) => count),
+                        backgroundColor: 'rgba(102, 126, 234, 0.6)',
                         borderColor: 'rgba(102, 126, 234, 1)',
                         borderWidth: 1
                     }]
@@ -534,107 +363,220 @@ ${extractedTitles.slice(0, 50).join('\n')}
                 options: {
                     responsive: true,
                     plugins: {
-                        legend: { display: false }
+                        legend: {
+                            display: false
+                        }
                     },
                     scales: {
-                        y: { beginAtZero: true }
+                        y: {
+                            beginAtZero: true
+                        }
                     }
                 }
             });
         }
 
-        function drawLengthChart(lengths) {
-            const bins = {};
-            lengths.forEach(length => {
-                const bin = Math.floor(length / 5) * 5;
-                bins[bin] = (bins[bin] || 0) + 1;
-            });
-
-            const ctx = document.getElementById('lengthChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: Object.keys(bins).sort((a, b) => a - b).map(bin => `${bin}-${parseInt(bin) + 4}文字`),
-                    datasets: [{
-                        label: 'タイトル数',
-                        data: Object.keys(bins).sort((a, b) => a - b).map(bin => bins[bin]),
-                        backgroundColor: 'rgba(236, 72, 153, 0.2)',
-                        borderColor: 'rgba(236, 72, 153, 1)',
-                        borderWidth: 2,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: { beginAtZero: true }
-                    }
-                }
-            });
-        }
-
-        function displayGeneratedTitles(generatedTitles) {
-            const section = document.getElementById('generatedTitles');
-            let html = '';
+        // AI分析実行
+        async function performAIAnalysis() {
+            const apiKey = document.getElementById('geminiApiKey').value.trim();
+            const progressDiv = document.getElementById('analysisProgress');
             
-            generatedTitles.forEach((item, index) => {
-                html += `
-                    <div class="story-item bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg">
-                        <div class="flex items-start space-x-3">
-                            <div class="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
+            if (!apiKey) {
+                alert('APIキーを設定してください');
+                return;
+            }
+
+            if (extractedTitles.length === 0) {
+                alert('まずタイトルを抽出してください');
+                return;
+            }
+
+            progressDiv.innerHTML = '<div class="text-blue-600"><i class="fas fa-spinner fa-spin mr-2"></i>AI分析中...</div>';
+
+            try {
+                // Phase 1: データ分析
+                const analysisPrompt = `
+あなたは同人作品のマーケティング専門家です。以下のFANZA作品タイトル${extractedTitles.length}件を詳細に分析してください：
+
+【抽出タイトル一覧】
+${extractedTitles.slice(0, 50).join('\n')}
+
+【分析要求】
+1. このデータセット特有の売れるキーワードTOP10
+2. 効果的な文字数範囲とタイトル構造パターン
+3. 人気ジャンル・設定・シチュエーション
+4. 感情を刺激する表現技法
+5. ターゲット層の嗜好パターン
+
+実際のデータのみを分析し、具体的な傾向を回答してください。
+`;
+
+                progressDiv.innerHTML = '<div class="text-blue-600"><i class="fas fa-brain mr-2"></i>Gemini AIがデータを分析中...</div>';
+                const analysisResult = await callGeminiAPI(analysisPrompt, apiKey);
+                
+                // 分析結果をローカルストレージに保存
+                localStorage.setItem('analysisResults', JSON.stringify(analysisResult));
+                
+                // 分析結果表示
+                displayAnalysisResults(analysisResult);
+
+                // Phase 2: タイトル生成
+                const generationPrompt = `
+先ほどの分析結果を活用して、以下を生成してください：
+
+【分析結果】
+${analysisResult}
+
+【タスク】
+分析で見つかった売れる要素を組み合わせて、全く新しいタイトル10個とストーリーを生成してください。
+
+【制約】
+- 抽出データの傾向を必ず反映
+- 既存タイトルの単純模倣は避ける
+- 各タイトルごとに異なるストーリー（3-4行）
+- 「内気な転校生」パターンは禁止
+
+【出力形式】
+1. [タイトル名]
+[3-4行のストーリー]
+[使用した売れる要素]
+
+10個すべて異なる内容で生成してください。
+`;
+
+                progressDiv.innerHTML = '<div class="text-purple-600"><i class="fas fa-magic mr-2"></i>AI がタイトル案を生成中...</div>';
+                const generatedContent = await callGeminiAPI(generationPrompt, apiKey);
+                
+                // 生成結果表示
+                displayGeneratedContent(generatedContent);
+                
+                progressDiv.innerHTML = '<div class="success-text"><i class="fas fa-check mr-2"></i>AI分析・生成完了！</div>';
+
+            } catch (error) {
+                console.error('Analysis Error:', error);
+                progressDiv.innerHTML = `<div class="error-text"><i class="fas fa-times mr-2"></i>分析エラー: ${error.message}</div>`;
+                
+                // フォールバック表示
+                displayFallbackContent();
+            }
+        }
+
+        // 生成コンテンツ表示
+        function displayGeneratedContent(content) {
+            const section = document.getElementById('generatedContentSection');
+            const container = document.getElementById('generatedContent');
+            
+            // AIからの回答をパース
+            const items = content.split(/\d+\./).slice(1);
+            
+            container.innerHTML = items.map((item, index) => {
+                const lines = item.trim().split('\n').filter(line => line.trim());
+                const title = lines[0] || `AI生成タイトル ${index + 1}`;
+                const story = lines.slice(1, -1).join('\n') || 'ストーリーを生成中...';
+                const elements = lines[lines.length - 1] || '分析要素を抽出中...';
+                
+                return `
+                    <div class="analysis-item bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-lg">
+                        <div class="flex items-start space-x-4">
+                            <div class="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
                                 ${index + 1}
                             </div>
                             <div class="flex-1">
-                                <h3 class="text-lg font-semibold text-purple-800 mb-2">${item.title}</h3>
-                                <p class="text-gray-700 leading-relaxed">${item.story}</p>
+                                <h4 class="text-lg font-bold text-purple-800 mb-3">${title}</h4>
+                                <p class="text-gray-700 mb-3 leading-relaxed">${story}</p>
+                                <div class="text-sm text-purple-600 bg-white p-2 rounded border-l-4 border-purple-600">
+                                    <strong>使用した売れる要素:</strong> ${elements}
+                                </div>
                             </div>
                         </div>
                     </div>
                 `;
+            }).join('');
+            
+            section.classList.remove('hidden');
+        }
+
+        // フォールバック表示
+        function displayFallbackContent() {
+            const section = document.getElementById('generatedContentSection');
+            const container = document.getElementById('generatedContent');
+            
+            // 簡易分析から要素抽出
+            const keywordAnalysis = {};
+            extractedTitles.forEach(title => {
+                title.split(/[\s～・〜（）【】]/).forEach(word => {
+                    if (word.length > 1) {
+                        keywordAnalysis[word] = (keywordAnalysis[word] || 0) + 1;
+                    }
+                });
             });
             
-            section.innerHTML = html;
-            document.getElementById('generatedSection').classList.remove('hidden');
-            document.getElementById('generatedSection').classList.add('fade-in');
-        }
-
-        function showStatus(message, type) {
-            const status = document.getElementById('extractionStatus');
-            status.className = `mt-3 p-3 rounded-lg ${type === 'success' ? 'bg-green-100 text-green-800' : type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`;
-            status.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} mr-2"></i>${message}`;
-            status.classList.remove('hidden');
-        }
-
-        function showProcessing(show) {
-            const section = document.getElementById('processingSection');
-            if (show) {
-                section.classList.remove('hidden');
-                section.classList.add('fade-in');
-            } else {
-                section.classList.add('hidden');
+            const topKeywords = Object.entries(keywordAnalysis)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 10)
+                .map(([word]) => word);
+            
+            const fallbackTitles = [];
+            for (let i = 0; i < 10; i++) {
+                const keyword1 = topKeywords[Math.floor(Math.random() * Math.min(topKeywords.length, 5))];
+                const keyword2 = topKeywords[Math.floor(Math.random() * Math.min(topKeywords.length, 5))];
+                fallbackTitles.push({
+                    title: `${keyword1}と${keyword2}の特別な関係〜新しい発見〜`,
+                    story: `${keyword1}に関わる主人公が${keyword2}との出会いを通じて新しい自分を発見していく物語。この体験を通じて、これまで知らなかった感情や関係性を探求していく成長ストーリー。`,
+                    elements: `抽出キーワード: ${keyword1}, ${keyword2}`
+                });
             }
+            
+            container.innerHTML = fallbackTitles.map((item, index) => `
+                <div class="analysis-item bg-yellow-50 p-6 rounded-lg border-l-4 border-yellow-500">
+                    <div class="flex items-start space-x-4">
+                        <div class="bg-yellow-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
+                            ${index + 1}
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="text-lg font-bold text-yellow-800 mb-3">${item.title}</h4>
+                            <p class="text-gray-700 mb-3">${item.story}</p>
+                            <div class="text-sm text-yellow-700 bg-white p-2 rounded">
+                                <strong>使用要素:</strong> ${item.elements}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            section.classList.remove('hidden');
         }
 
-        function updateProgress(percent, text) {
-            document.getElementById('progressBar').style.width = `${percent}%`;
-            document.getElementById('statusText').textContent = text;
-        }
-
-        // 初期化
+        // イベントリスナー設定
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('FANZA同人総合分析ツール（完全版）が読み込まれました');
+            loadApiKey();
+
+            // APIテスト
+            document.getElementById('testApiBtn').addEventListener('click', testGeminiAPI);
+
+            // HTMLから抽出
+            document.getElementById('extractFromHtmlBtn').addEventListener('click', function() {
+                const htmlContent = document.getElementById('htmlSource').value.trim();
+                if (!htmlContent) {
+                    alert('HTMLソースコードを入力してください');
+                    return;
+                }
+                
+                const titles = extractTitlesFromHTML(htmlContent);
+                displayExtractedTitles(titles);
+            });
+
+            // AI分析開始
+            document.getElementById('startAnalysisBtn').addEventListener('click', performAIAnalysis);
         });
     </script>
 </body>
 </html>
     <script id="html_badge_script1">
         window.__genspark_remove_badge_link = "https://www.genspark.ai/api/html_badge/" +
-            "remove_badge?token=To%2FBnjzloZ3UfQdcSaYfDv6GaZD%2BSYwnkr1yuff2ArU8lUf6EsJGnkEd3jM%2BZIUQvLY3UIjFxRPtbS0vqlsCHoVoI8rGctMdVVxLyDsMjrs9cFkyuh%2F4df493hsoogPkOcCqgZxZTtGonQKJgeL1ikvJ6APaiLDfXHi%2FG8lhCi9joUTIlP8kLx%2FaQrEv9hNIKgg34V2nrAgnoJNCzQyKJYbbJOjKugVl9yU6dORIAQLCmVfTJFOmiS%2BevGJSa0C1I4odFyOhKtQDEvjgFhIIVnlpQPipPuM3ZlGNLrtpO5CJ6OOK1bVmSuZ4X7YDQxRpY68X1jrYbRJg1AhjtlUs6Rd7URb1i5B4ix8UzHwjXh9aVIeQwRObKi9QxQ6FjY1788ufFza9iKaeSsA%2BUSeBtumNkAS1Gf%2BFqIslVsUbIQIWuNfBYltO3wcfJqNulBZ5zDg1yqP9tdoSOcsbPOrSDiVJE8VQfA67LH%2BWjVRkmnIYwa5XD2bOl6pnp2jL%2FOBYKImqVhCwdC2tgx6V8qvCxFug%2BwHrFMyYc71Yme1wO34%3D";
+            "remove_badge?token=To%2FBnjzloZ3UfQdcSaYfDmPf%2F5cCGAfdWzzhH7wLDu7ZjfzPsf8eVVTTwH2X6skxaxAJf2ExEqvLMFbDovNUK83arTp1mWs1W0YuvxlZpFdOVzHnAC2UK90yk48sft4Ht50pAGiO2%2Fnjp9hNI%2Fcd428%2BmAEI1N2yrzkHkxlW376x76Oq12DdUTylVKoAP9hRkriLplLx%2BqvQkmF2Mb05pJwPHHPP%2B%2BUKfTp8ckO6XQXDl9abIcE3kO5h1TuSKrJlLuPsDDjN2g5q77cSCsabtCqKIx5SWnCauNM31Qgc4IsljEa0VwuGAictkaeeVjUjF7vXlDlFDBuQND3m9EHWh%2BrpMzAf8EkLiYePiy4Sm%2FWd4lkA5jyE7WcLIHDvSPNIgF1GghWR5NIdYRm04WrqSCTsJI%2BQdNzFY8XCB10WQ3qlft8qnO%2BxxjP4xJkN3RfYwbwq9rp75415KukFH21XG1WNObZIqwh%2BMBLsj8p4beugO2zjkQWYns8ifwjMUQiqdtmeB%2FBetQrTusYyp%2BJNcLBDID0prV6fuLdj2DBkhhE%3D";
         window.__genspark_locale = "ja-JP";
-        window.__genspark_token = "To/BnjzloZ3UfQdcSaYfDv6GaZD+SYwnkr1yuff2ArU8lUf6EsJGnkEd3jM+ZIUQvLY3UIjFxRPtbS0vqlsCHoVoI8rGctMdVVxLyDsMjrs9cFkyuh/4df493hsoogPkOcCqgZxZTtGonQKJgeL1ikvJ6APaiLDfXHi/G8lhCi9joUTIlP8kLx/aQrEv9hNIKgg34V2nrAgnoJNCzQyKJYbbJOjKugVl9yU6dORIAQLCmVfTJFOmiS+evGJSa0C1I4odFyOhKtQDEvjgFhIIVnlpQPipPuM3ZlGNLrtpO5CJ6OOK1bVmSuZ4X7YDQxRpY68X1jrYbRJg1AhjtlUs6Rd7URb1i5B4ix8UzHwjXh9aVIeQwRObKi9QxQ6FjY1788ufFza9iKaeSsA+USeBtumNkAS1Gf+FqIslVsUbIQIWuNfBYltO3wcfJqNulBZ5zDg1yqP9tdoSOcsbPOrSDiVJE8VQfA67LH+WjVRkmnIYwa5XD2bOl6pnp2jL/OBYKImqVhCwdC2tgx6V8qvCxFug+wHrFMyYc71Yme1wO34=";
+        window.__genspark_token = "To/BnjzloZ3UfQdcSaYfDmPf/5cCGAfdWzzhH7wLDu7ZjfzPsf8eVVTTwH2X6skxaxAJf2ExEqvLMFbDovNUK83arTp1mWs1W0YuvxlZpFdOVzHnAC2UK90yk48sft4Ht50pAGiO2/njp9hNI/cd428+mAEI1N2yrzkHkxlW376x76Oq12DdUTylVKoAP9hRkriLplLx+qvQkmF2Mb05pJwPHHPP++UKfTp8ckO6XQXDl9abIcE3kO5h1TuSKrJlLuPsDDjN2g5q77cSCsabtCqKIx5SWnCauNM31Qgc4IsljEa0VwuGAictkaeeVjUjF7vXlDlFDBuQND3m9EHWh+rpMzAf8EkLiYePiy4Sm/Wd4lkA5jyE7WcLIHDvSPNIgF1GghWR5NIdYRm04WrqSCTsJI+QdNzFY8XCB10WQ3qlft8qnO+xxjP4xJkN3RfYwbwq9rp75415KukFH21XG1WNObZIqwh+MBLsj8p4beugO2zjkQWYns8ifwjMUQiqdtmeB/BetQrTusYyp+JNcLBDID0prV6fuLdj2DBkhhE=";
     </script>
     
     <script id="html_notice_dialog_script" src="https://www.genspark.ai/notice_dialog.js"></script>
